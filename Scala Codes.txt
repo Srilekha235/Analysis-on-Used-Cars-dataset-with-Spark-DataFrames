@@ -1,0 +1,100 @@
+****************************************************************
+****************************************************************
+	Name           : Srilekha Sampath kumar
+	Assignment 1   : Analysis with Spark DataFrames
+****************************************************************
+****************************************************************
+
+Scala Codes:
+The dataset is loaded using wget command,
+wget https://www.dropbox.com/s/ehehgr7f97y4sw0/all_anonymized_2015_11_2017_03.csv?dl=0
+
+Creating a Directory and Copying the dataset in it,
+> mv all_anonymized_2015_11_2017_03.csv?dl=0 cars.csv
+> hadoop fs -mkdir /BigData
+> hadoop fs -copyFromLocal cars.csv /BigData/.
+> hadoop fs -ls /BigData/
+
+Importing necessary libraries,
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions.{expr, col, column, min, max, avg, desc}
+
+Creating a new DataFrame to load the data into spark from local,
+> val cars = spark.read.format("csv").option("header", "true").load ("hdfs://10.128.0.13/BigData/cars.csv")
+> cars.show()
+
+Printing the schema to view the Datatypes of the variables in the dataset,
+cars.printSchema()
+
+Question 1, 2 and 3: 
+Creating a new schema called ‘sri_schema’ to change the data types of the variables,
+Data types for both the date column has been changed from ‘String’ to ‘Date’
+val sri_schema = StructType(Array(StructField("car_maker",StringType,true),StructField("car_model",StringType,true),StructField("car_mileage",IntegerType,true),StructField("car_manu_year",StringType,true),StructField("eng_dis",IntegerType,true),StructField("eng_pow",IntegerType,true),StructField("body_type",StringType,true),StructField("colour",StringType,true),StructField("eng_stk_year",IntegerType,true),StructField("trans_type",StringType,true),StructField("door",IntegerType,true),StructField("seat",IntegerType,true),StructField("fuel",StringType,true),StructField("add_posted_date",DateType,true),StructField("car_last_seen",DateType,true),StructField("car_price",FloatType,true)))
+
+A new Data Frame called ‘used_cars’ has been created with the above-mentioned schema,
+val used_cars = spark.read.format ("csv").option("header", "true")
+.schema(sri_schema)
+.load("hdfs://10.128.0.13/BigData/cars.csv")
+
+Question 4: To get the count of null values in each field
+> val maker = used_cars.filter(col("car_maker").isNull).count()
+> val model = used_cars.filter(col("car_model").isNull).count()
+> val mileage = used_cars.filter(col("car_mileage").isNull).count()
+> val year = used_cars.filter(col("car_manu_year").isNull).count()
+> val eng_dis = used_cars.filter(col("eng_dis").isNull).count()
+> val eng_pow = used_cars.filter(col("eng_pow").isNull).count()
+> val body = used_cars.filter(col("body_type").isNull).count()
+> val color = used_cars.filter(col("colour").isNull).count()
+> val eng_year = used_cars.filter(col("eng_stk_year").isNull).count()
+> val trans_type = used_cars.filter(col("trans_type").isNull).count()
+> val door = used_cars.filter(col("door").isNull).count()
+> val seat = used_cars.filter(col("seat").isNull).count()
+> val fuel = used_cars.filter(col("fuel").isNull).count()
+> val add = used_cars.filter(col("add_posted_date").isNull).count()
+> val last = used_cars.filter(col("car_last_seen").isNull).count()
+> val price = used_cars.filter(col("car_price").isNull).count()
+
+Question 5: Group the price column and count the number of unique prices. Do you notice if there is a single price that is repeating across the ads?
+> val price1 = used_cars.groupBy(col("car_price")).agg(count(col("car_price")).alias("car_count_price")).orderBy(col("car_count_price").desc)
+> price1.show()
+
+Question 6: Write a Spark DataFrames query to create a new table called clean_used_cars from used_cars with the following conditions: 
+	Drop the columns with more than 50% missing values 
+	The manufacture year between 2000 and 2017 including 2000 and 2017 
+	Both maker and model exist in the row 
+	The price range is from 3000 to 2000,000 (3000 ≤ price ≤ 2000,000) 
+	Remove any price you singled out in Step 3 (i.e., a price that repeats too frequently for a random set of ads).
+
+val clean_used_cars = used_cars.drop("colour","fuel", "eng_stk_year").filter("(car_manu_year >= 2000 AND car_manu_year <= 2017) AND (car_price >=3000 AND car_price <=2000000) AND (car_maker is not null) AND (car_model is not null) AND (car_price !=1295.34)")
+
+Question 7: Write a Spark DataFrames query to find how many records remained clean_used_cars
+clean_used_cars.count()
+
+Question 8: Write a Spark DataFrames query to find the make and model for the cars with the top 10 highest average price
+val que8 = clean_used_cars.groupBy(col("car_maker"), col("car_model")).agg(avg(col("car_price")).alias("Top_Avg_price")).orderBy(col("Top_Avg_price").desc);
+
+Question 9: Write a Spark DataFrames query to find the make and model for the cars with the top 10 lowest average price
+val que9 = clean_used_cars.groupBy(col("car_maker"), col("car_model")).agg(avg(col("car_price")).alias("Least_Avg_price")).orderBy(col("Least_Avg_price").asc);
+
+To answer Question 10 – 12, a new DataFrame called ‘segments1’ has been created with a new variable ‘Segments’ to differentiate Economy, Intermediate and Luxury customers.
+val segments1 = que8.withColumn("Segments", when(col("Top_Avg_price") >= "3000" && col("Top_Avg_price") < "20000" , "3000-20000").when(col("Top_Avg_price") >= "20000" && col("Top_Avg_price") < "300000" , "20000-300000") .when(col("Top_Avg_price") >= "300000" && col("Top_Avg_price") < "2000000" , "300000-2000000"))
+
+Question 10: Write a Spark DataFrames query to recommend top five make and model for Economic segment customers (Top five manufacturers in the 3000 to 20,000 price range;3000≤price<20,000) – based on the top average price.
+Least 5 cars for Economy segment customers are,
+> val economy = segments1.filter(col("Segments") === "3000-20000")
+> val que10 = economy.orderBy(col("Top_Avg_price").asc).show(5)
+Top 5 cars for Economy segment customers are,
+> val qu10 = economy.orderBy(col("Top_Avg_price").desc).show(5)
+
+Question 11: Write a Spark DataFrames query to recommend top five make and model for Intermediate segment customers (Top five manufacturers in the 20,000 to 300,000 price range; 3000≤price<20,000) - based on the top average price.
+Least 5 cars for Intermediate segment customers are,
+> val inter = segments1.filter(col("Segments") === "20000-300000")
+> val que11 = inter.orderBy(col("Top_Avg_price").asc).show(5)
+Top 5 cars for Intermediate segment customers are,
+> val qu11 = inter.orderBy(col("Top_Avg_price").desc).show(5)
+
+Question 12: Write a Spark DataFrames query to recommend the top five make and model for the Luxury segment customers (Top five manufacturers in the 300,000 to 2000,000 price range; 300,000≤price<2000,000) - based on the top average price.
+> val lux = segments1.filter(col("Segments") === "300000-2000000")
+> val que12 = lux.orderBy(col("Top_Avg_price").asc).show(5)
+
+
